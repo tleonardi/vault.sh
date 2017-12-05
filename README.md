@@ -31,7 +31,7 @@ After working on the decrypted files in the vault, invoking `vault -e` scans the
 
 ## Examples
 
-###Decrypting a secret file:
+### Decrypting a secret file:
 ```
 tom@local ~/secret_files $ ls
 secret.gpg
@@ -49,7 +49,7 @@ tom@local ~/secret_files $ ls ~/vault
 secret
 ```
 
-###Re-encrypting a secret file
+### Re-encrypting a secret file
 ```
 tom@local ~/secret_files $ ls ~/vault
 secret
@@ -70,7 +70,7 @@ tleonardi@toms_macbook ~/Bigcloud/Projects/vault $ ls
 tleonardi@toms_macbook ~/Bigcloud/Projects/vault $
 ```
 
-###Re-encrypting after modifying the original file
+### Re-encrypting after modifying the original file
 ```
 tom@local ~/secret_files $ ls
 secret.gpg
@@ -94,6 +94,3 @@ Processing file: secret
 	Do you want to overwrite ~/secret_files/secret.gpg?(Y/n) 
 n
 ```
-
-##Known issues
-
