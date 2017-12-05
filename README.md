@@ -31,7 +31,7 @@ After working on the decrypted files in the vault, invoking `vault -e` scans the
 
 ## Examples
 
-### Decrypting a secret file:
+### Decrypting a secret file
 ```
 tom@local ~/secret_files $ ls
 secret.gpg
@@ -39,7 +39,7 @@ secret.gpg
 tom@local ~/secret_files $ vault secret.gpg 
 gpg: encrypted with 2048-bit RSA key, ID 0xXXXXXXXX, created 2000-01-01
       "Tommaso Leonardi <tom@itm6.xyz>"
-The file was decrypted to the vault: /home/tleonardi/vault/secret
+The file was decrypted to the vault: ~/vault/secret
 
 1) Delete it
 2) Add to Index for later re-encryption (default)
@@ -66,8 +66,8 @@ Y
 gpg: using "0xXXXXXXXXX" as default secret key for signing
 	Do you want to delete the unencrypted file ~/vault/secret and its index?(Y/n) 
 Y
-tleonardi@toms_macbook ~/Bigcloud/Projects/vault $ ls
-tleonardi@toms_macbook ~/Bigcloud/Projects/vault $
+tom@local ~/secret_files $ ls ~/vault
+tom@local ~/secret_files $
 ```
 
 ### Re-encrypting after modifying the original file
