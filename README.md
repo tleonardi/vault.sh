@@ -1,8 +1,22 @@
 # vault.sh
 
-Vault is a simple interactive bash script that simplifies the management of gpg encrypted files.
+_Vault is a simple interactive bash script that simplifies the management of gpg encrypted files._
 
-```
+`vault` decrypts [gpg](http://www.gnupg.org) files to a specified folder (the vault) and indexes them for later re-encryption.
+After working on the decrypted files inside the vault, `vault` scans the indexed files, re-encrypts them and moves them back to their original location. `vault` can detect if the encrypted file was modified after decryption (e.g. manually by the user or by another program), and prompts the user before overwriting it.
+
+A typical use case is to store sensitive data as encrypted files in the cloud and use `vault` to decrypt them to a local folder and put them back in the cloud after working on them.
+
+## Features
+* Simple interface
+* Strong crypto (asymmetric encryption via gpg)
+* Minimal dependecies (gpg, coreutils)
+* Fast
+
+## Examples
+
+```ShellSession
+
 tom@local ~ $ vault -h
 
 vault simplifies encryption and decryption of files to a vault.
@@ -24,12 +38,7 @@ Usage: vault [OPTIONS] filename(s)
   -h	   Print this help message
 ```
 
-## Synopsis
 
-Given a gpg-encrypted file, `vault` decrypts it to a specified folder (the vault) and indexes it for later re-encryption.
-After working on the decrypted files in the vault, invoking `vault -e` scans the indexed files in the vault, re-encrypts them and moves them back to their original location. `vault.sh` can detect if the encrypted file was modified after decryption (e.g. manually by the user or by another program), and prompts the user before overwriting it.
-
-## Examples
 
 ### Decrypting a secret file
 ```
