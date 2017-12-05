@@ -86,7 +86,7 @@ The file was decrypted to the vault: ~/vault/secret
 2
 tom@local ~/secret_files $ ls ~/vault
 secret
-tom@local ~/secret_files $ echo "My new secret" > ~/vault/secret
+tom@local ~/secret_files $ echo "Original file changed" > ~/secret_files/secret.gpg
 
 tom@local ~/secret_files $ vault -e
 Processing file: secret
