@@ -1,0 +1,272 @@
+#!/bin/bash
+
+#MIT License
+#
+#Copyright (c) [2016] [Tommaso Leonardi, tom@itm6.xyz]
+#
+#Permission is hereby granted, free of charge, to any person obtaining a copy
+#of this software and associated documentation files (the "Software"), to deal
+#in the Software without restriction, including without limitation the rights
+#to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#copies of the Software, and to permit persons to whom the Software is
+#furnished to do so, subject to the following conditions:
+#
+#The above copyright notice and this permission notice shall be included in all
+#copies or substantial portions of the Software.
+#
+#THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+#SOFTWARE.
+
+VERSION="0.3"
+set -e -o pipefail
+
+usage()
+{
+cat <<EOF
+ 
+Usage: $(basename $0) [OPTIONS] filename(s)
+
+  -d       Decrypts the file to the vault and optionally makes 
+           an index to re-encrypt it and copy it back to its
+	   original location.
+  -e       Re-encrypt indexed files in the vault and copy them
+           to their original location.
+  -p       Path of the vault. Deafults to \$VAULT if set, other-
+           wise \$HOME/vault
+  -k       GPG key to use to encrypt the files. If not provided
+           uses \$VAULT_KEY (if set) or the gpg option
+	   --default-recipient-self.
+  -q       Run non-interactively (automatically overwrites)
+  -v	   Print the version
+  -h       Print this help message
+EOF
+}
+
+
+GPG="gpg"
+QUIET=""
+OPTIND=1
+
+while getopts "hqedk:p:v" opt; do
+    case "$opt" in
+        h)
+                usage
+		exit 0
+                ;;
+	e)
+		ENCRYPT=1
+		;;
+	d)
+                DECRYPT=1
+                ;;
+	k)
+		VAULT_KEY=$OPTARG
+		;;
+	p)
+		VAULT=$OPTARG
+		;;
+	q)
+		QUIET="/bin/false"
+		;;
+	v)	echo "$(basename $0) $VERSION"
+		;;
+	*)
+      		echo "Invalid option: -$OPTARG" >&2
+      		exit 1
+      		;;
+    esac
+done
+
+shift $((OPTIND-1))
+
+
+# Set the umask
+umask 077
+
+# If $VAULT_KEY is not set use default
+# Otherwise check that the key is in the
+# keyring.
+if [[ -z $VAULT_KEY ]]; then
+	RECIPIENT="--default-recipient-self"
+else
+	if ! (($GPG --list-secret-keys | grep -E "0x[0-9A-Z]+$VAULT_KEY")>/dev/null); then
+		echo "It looks like the key $VAULT_KEY is not in your keyring!"
+	exit
+	else
+		RECIPIENT="--recipient $VAULT_KEY"
+	fi
+fi
+
+# If vault is empty use default
+if [[ -z "$VAULT" ]]; then
+	VAULT="$HOME/vault"
+fi
+
+# If $VAULT does not exist make it
+if [[ ! -d "$VAULT" ]]; then
+	mkdir -p "$VAULT"
+fi
+
+# Check that permissions of $VAULT are strict
+if ! ((stat -c "%a" "${VAULT}" | grep "..0")>/dev/null); then
+	echo "The vault (${VAULT}) is world writeable/readable!"
+	exit
+fi
+
+if [[ $ENCRYPT -eq 0 && $DECRYPT -eq 0 ]]; then
+	DECRYPT=1
+fi
+
+decrypt()
+{
+	FILE="$1"
+	if [[ ! -f "${FILE}" ]]; then
+		echo "The file "${FILE}" doesn't exist"
+		return 0
+	fi
+
+	# Get the full path of $FILE
+	FILE="$(cd "$(dirname "${FILE}")"; pwd)/$(basename "${FILE}")"
+
+	# Check that the file to decrypt is PGP
+	if ! ((file "${FILE}" | grep -E "PGP|GPG")>/dev/null); then
+		echo "${FILE}" is not in PGP format.
+		return 0
+	fi
+
+	# File path to decrypt to vault
+	OUT="${VAULT}/$(basename "${FILE}" .gpg)"
+	# Index file
+	INDEX="$(dirname "${OUT}")/.$(basename "${OUT}").vaultindex"
+
+	# Check if $OUT exists	
+	if [[ -f "${OUT}" ]]; then
+		if [[ ! -f "${INDEX}" ]]; then
+			echo "There is already a file named '$(basename "${OUT}")' in the vault."
+		else
+			echo "There is already an indexed file named '$(basename "${OUT}")' in the vault."
+		fi
+		while $QUIET; do
+			read -p "Do you want to overwrite it? (Y/n) " yn
+			case $yn in
+			[Nn]* ) return 0;;
+			* ) break;; 
+			esac
+		done
+	fi
+	
+	# Save the SHA-1 hash of the orginal file and decrypt to vault	
+	# We are using gpg to calculate for better portability
+	HASH=$($GPG --print-md --with-colons sha1 "${FILE}")
+	$GPG --decrypt "${FILE}" > "${OUT}"
+	echo "The file was decrypted to the vault: $OUT"
+	# If there's an index delete it.
+	if [[ -f "${INDEX}" ]]; then
+		rm -f "${INDEX}"
+		echo "(Index file was deleted)"
+	fi
+
+	while $QUIET; do
+	echo
+	echo "1) Delete it"
+	echo "2) Add to Index for later re-encryption (default)"
+	echo "3) Leave it"
+		read -p "" yn
+		case $yn in
+		[1] ) rm $OUT; return 0;;
+		[3] ) return 0;;
+		* ) break ;; 
+		esac
+	done
+	# Make an index file in vault
+	(echo -e "PATH\t${FILE}"
+	 echo -e "HASH\t${HASH}"
+	 echo -e "OUT\t${OUT}"
+	 echo -e "Time\t$(date)")>"$(dirname "${OUT}")/.$(basename "${OUT}").vaultindex"
+
+}
+encrypt(){
+	if test -z "$(find $VAULT -maxdepth 1 -name ".*.vaultindex" -print -quit)"
+	then
+		echo "Nothing to process in the vault"
+		return
+	fi
+
+
+	for index in ${VAULT}/.*.vaultindex; do
+		DEC_FILE="${VAULT}/$(basename "$index" .vaultindex | sed 's/^\.//')"
+		# Check if the encrypted file is in the vault
+		if [[ ! -f "${DEC_FILE}" ]]; then
+			echo -e "\t The decrypted file $(basename "${DEC_FILE}") doesn't exist in the vault"
+			break
+		else
+			echo "Processing file: $(basename "${DEC_FILE}")"
+		fi
+
+		ORIG_FILE=$((grep -E "^PATH" "${index}" || true) | cut -d $'\t' -f2)
+		if [[ -z "${ORIG_FILE}" ]]; then
+			echo -e "\tError parsing ${index}"
+			break
+		fi
+
+		HASH=$((grep "^HASH" "${index}" || true) | cut -d $'\t' -f2 )
+		if [[ -z "${HASH}" ]]; then
+			echo -e "\tError parsing ${index}"
+			break
+		fi
+		
+		if [[ -f "${ORIG_FILE}" ]]; then
+			ORIG_HASH=$($GPG --print-md --with-colons sha1 "${ORIG_FILE}")
+		else
+			echo -e "\t${ORIG_FILE} doesn't exist"
+		fi
+
+
+
+		# Check if the hashes match
+		if [[ -f "${ORIG_FILE}" && "${HASH}" != "${ORIG_HASH}" ]]; then
+			echo -e "\t## The original file has been modified after decryption! ##"
+		fi
+		
+		if [[ -f "${ORIG_FILE}" ]]; then
+			while $QUIET; do
+			echo -e "\tDo you want to overwrite ${ORIG_FILE}?(Y/n) "
+				read -p "" yn
+				case $yn in
+				[yY]* ) break ;;
+				[Nn]* ) break 2;;
+				* ) break ;; 
+				esac
+			done
+		fi
+		$GPG --encrypt $RECIPIENT --batch --yes --output "${ORIG_FILE}" "${DEC_FILE}" 
+		while $QUIET; do
+		echo -e "\tDo you want to delete the unencrypted file ${DEC_FILE} and its index?(Y/n) "
+			read -p "" yn
+			case $yn in
+			[yY]* ) break ;;
+			[Nn]* ) break 2;;
+			* ) break ;; 
+			esac
+		done
+		rm "${DEC_FILE}"
+		rm "${index}"
+	done
+
+
+}
+
+if [[ $DECRYPT == 1 ]]; then
+	for i in "$@"; do
+		decrypt "$i"
+	done
+fi
+
+if [[ $ENCRYPT == 1 ]]; then
+	encrypt
+fi
