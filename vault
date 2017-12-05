@@ -28,6 +28,8 @@ set -e -o pipefail
 usage()
 {
 cat <<EOF
+
+vault simplifies encryption and decryption of files to a vault.
  
 Usage: $(basename $0) [OPTIONS] filename(s)
 
@@ -44,6 +46,7 @@ Usage: $(basename $0) [OPTIONS] filename(s)
   -q       Run non-interactively (automatically overwrites)
   -v	   Print the version
   -h       Print this help message
+
 EOF
 }
 
