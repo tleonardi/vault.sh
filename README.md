@@ -41,7 +41,7 @@ Usage: vault [OPTIONS] filename(s)
 
 
 ### Decrypting a secret file
-```
+```ShellSession
 tom@local ~/secret_files $ ls
 secret.gpg
  
@@ -59,7 +59,8 @@ secret
 ```
 
 ### Re-encrypting a secret file
-```
+```ShellSession
+
 tom@local ~/secret_files $ ls ~/vault
 secret
 
@@ -80,7 +81,8 @@ tom@local ~/secret_files $
 ```
 
 ### Re-encrypting after modifying the original file
-```
+```ShellSession
+
 tom@local ~/secret_files $ ls
 secret.gpg
  
